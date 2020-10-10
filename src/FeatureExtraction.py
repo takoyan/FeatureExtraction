@@ -2,77 +2,63 @@ import module.Calclator
 import pandas as pd
 
 class FeatureExtraction():
-    def featureExtraction(self, file_name):
+    def get_features(df, i, window):
         ROUND = 1000
-
         new_df = pd.DataFrame()
-        df = pd.read_json("../raw_data/"+file_name+'.json', orient='records', lines=True)
+        df_all = df[(df['unixTime'] // ROUND >= ((df['unixTime'].min() // ROUND) + i - window)) & (
+                    df['unixTime'] // ROUND <= ((df['unixTime'].min() // ROUND) + i))]
+
+        df_acc = df_all[df_all['type'] == 'Accelerometer']
+        df_gyro = df_all[df_all['type'] == 'Gyroscope']
+        if len(df_acc) == 0 or len(df_gyro) == 0:
+            return new_df
+
+        acc_x_ave, acc_y_ave, acc_z_ave, acc_range, acc_x_std, acc_y_std, acc_z_std, gyro_range, \
+        gyro_x_ave, gyro_y_ave, gyro_z_ave, gyro_x_std, gyro_y_std, gyro_z_std, acc_std, gyro_std, \
+        acc_skewness, gyro_skewness, acc_kurtosis, gyro_kurtosis, acc_energy, gyro_energy, acc_ave, gyro_ave = \
+        module.Calclator.get_Ave_value(df_acc['x']), module.Calclator.get_Ave_value(df_acc['y']), module.Calclator.get_Ave_value(df_acc['z']), module.Calclator.get_Range(df_acc), \
+        module.Calclator.get_Std_value(df_acc['x']), module.Calclator.get_Std_value(df_acc['y']), module.Calclator.get_Std_value(df_acc['z']), module.Calclator.get_Range(df_gyro), \
+        module.Calclator.get_Ave_value(df_gyro['x']), module.Calclator.get_Ave_value(df_gyro['y']), module.Calclator.get_Ave_value(df_gyro['z']), module.Calclator.get_Std_value(df_gyro['x']), \
+        module.Calclator.get_Std_value(df_gyro['y']), module.Calclator.get_Std_value(df_gyro['z']), module.Calclator.get_Std(df_acc), module.Calclator.get_Std(df_gyro), module.Calclator.get_Skewness(df_acc), \
+        module.Calclator.get_Skewness(df_gyro), module.Calclator.get_Kurtosis(df_acc), module.Calclator.get_Kurtosis(df_gyro), module.Calclator.get_Energy(df_acc), module.Calclator.get_Energy(df_gyro), module.Calclator.get_ave(df_acc), module.Calclator.get_ave(df_gyro)
+
+        new_df = new_df.append(
+            {'acc_x_ave_window{}'.format(window): acc_x_ave, 'acc_y_ave_window{}'.format(window): acc_y_ave,
+             'acc_z_ave_window{}'.format(window): acc_z_ave,
+             'acc_range_window{}'.format(window): acc_range, 'acc_x_std_window{}'.format(window): acc_x_std,
+             'acc_y_std_window{}'.format(window): acc_y_std, 'acc_z_std_window{}'.format(window): acc_z_std,
+             'gyro_range_window{}'.format(window): gyro_range,
+             'gyro_x_ave_window{}'.format(window): gyro_x_ave, 'gyro_y_ave_window{}'.format(window): gyro_y_ave,
+             'gyro_z_ave_window{}'.format(window): gyro_z_ave, 'gyro_x_std_window{}'.format(window): gyro_x_std,
+             'gyro_y_std_window{}'.format(window): gyro_y_std, 'gyro_z_std_window{}'.format(window): gyro_z_std,
+             'acc_std_window{}'.format(window): acc_std, 'gyro_std_window{}'.format(window): gyro_std,
+             'acc_skewness_window{}'.format(window): acc_skewness,
+             'gyro_skewness_window{}'.format(window): gyro_skewness,
+             'acc_kurtosis_window{}'.format(window): acc_kurtosis,
+             'gyro_kurtosis_window{}'.format(window): gyro_kurtosis, 'acc_energy_window{}'.format(window): acc_energy,
+             'gyro_energy_window{}'.format(window): gyro_energy, 'acc_ave_window{}'.format(window): acc_ave,
+             'gyro_ave_window{}'.format(window): gyro_ave},
+            ignore_index=True)
+
+        return new_df
+
+    def featureExtraction(self, file_name):
+        all_df = pd.DataFrame()
+
+        df = pd.read_json("../raw_data/"+file_name+".json".format(file_name), orient='records', lines=True)
 
         print('{}LOAD DONE!!!!'.format(file_name))
 
         for i in range(5, (df['unixTime'][len(df["unixTime"])-1]//1000)-(df['unixTime'][0]//1000)+1, 1):
-            df_all = df[df['unixTime'] // ROUND == ((df['unixTime'].min() // ROUND) + i)]
-            df_acc = df_all[df_all['type'] == 'Accelerometer']
-            df_gyro = df_all[df_all['type'] == 'Gyroscope']
+            new_df = pd.DataFrame()
+            for window in range(0, 4):
+                features = self.get_features(df, i, window)
+                if len(features) == 0:
+                    continue
+                new_df = pd.concat([new_df, features], axis=1)
+            all_df = all_df.append(new_df)
 
-            df_old_all = df[df['unixTime'] // ROUND == ((df['unixTime'].min() // ROUND) + i - 1)]
-            df_old_acc = df_old_all[df_old_all['type'] == 'Accelerometer']
-            df_old_gyro = df_old_all[df_old_all['type'] == 'Gyroscope']
-
-            if len(df_acc) == 0 or len(df_gyro) == 0:
-                continue
-
-            old_acc_x_ave, old_acc_y_ave, old_acc_z_ave, old_acc_range, old_acc_x_std, old_acc_y_std, old_acc_z_std, old_gyro_range, \
-            old_gyro_x_ave, old_gyro_y_ave, old_gyro_z_ave, old_gyro_x_std, old_gyro_y_std, old_gyro_z_std, old_acc_std, old_gyro_std, \
-            old_acc_skewness, old_gyro_skewness, old_acc_kurtosis, old_gyro_kurtosis, old_acc_energy, old_gyro_energy, old_acc_ave, old_gyro_ave = \
-            module.Calclator.get_Ave_value(df_old_acc['x']), module.Calclator.get_Ave_value(df_old_acc['y']), module.Calclator.get_Ave_value(df_old_acc['z']), module.Calclator.get_Range(df_old_acc), \
-            module.Calclator.get_Std_value(df_old_acc['x']), module.Calclator.get_Std_value(df_old_acc['y']), module.Calclator.get_Std_value(df_old_acc['z']), module.Calclator.get_Range(df_old_gyro), \
-            module.Calclator.get_Ave_value(df_old_gyro['x']), module.Calclator.get_Ave_value(df_old_gyro['y']), module.Calclator.get_Ave_value(df_old_gyro['z']), module.Calclator.get_Std_value(df_old_gyro['x']), \
-            module.Calclator.get_Std_value(df_old_gyro['y']), module.Calclator.get_Std_value(df_old_gyro['z']), module.Calclator.get_Std(df_old_acc), module.Calclator.get_Std(df_old_gyro), module.Calclator.get_Skewness(df_old_acc), \
-            module.Calclator.get_Skewness(df_old_gyro), module.Calclator.get_Kurtosis(df_old_acc), module.Calclator.get_Kurtosis(df_old_gyro), module.Calclator.get_Energy(df_old_acc), module.Calclator.get_Energy(df_old_gyro), module.Calclator.get_ave(df_old_acc), module.Calclator.get_ave(df_old_gyro)
-
-            acc_x_ave, acc_y_ave, acc_z_ave, acc_range, acc_x_std, acc_y_std, acc_z_std, gyro_range, \
-            gyro_x_ave, gyro_y_ave, gyro_z_ave, gyro_x_std, gyro_y_std, gyro_z_std, acc_std, gyro_std, \
-            acc_skewness, gyro_skewness, acc_kurtosis, gyro_kurtosis, acc_energy, gyro_energy, acc_ave, gyro_ave = \
-            module.Calclator.get_Ave_value(df_acc['x']), module.Calclator.get_Ave_value(df_acc['y']), module.Calclator.get_Ave_value(df_acc['z']), module.Calclator.get_Range(df_acc), \
-            module.Calclator.get_Std_value(df_acc['x']), module.Calclator.get_Std_value(df_acc['y']), module.Calclator.get_Std_value(df_acc['z']), module.Calclator.get_Range(df_gyro), \
-            module.Calclator.get_Ave_value(df_gyro['x']), module.Calclator.get_Ave_value(df_gyro['y']), module.Calclator.get_Ave_value(df_gyro['z']), module.Calclator.get_Std_value(df_gyro['x']), \
-            module.Calclator.get_Std_value(df_gyro['y']), module.Calclator.get_Std_value(df_gyro['z']), module.Calclator.get_Std(df_acc), module.Calclator.get_Std(df_gyro), module.Calclator.get_Skewness(df_acc), \
-            module.Calclator.get_Skewness(df_gyro), module.Calclator.get_Kurtosis(df_acc), module.Calclator.get_Kurtosis(df_gyro), module.Calclator.get_Energy(df_acc), module.Calclator.get_Energy(df_gyro), module.Calclator.get_ave(df_acc), module.Calclator.get_ave(df_gyro)
-
-            new_df = new_df.append({'acc_x_ave': acc_x_ave, 'acc_y_ave': acc_y_ave,
-                                    'acc_z_ave': acc_z_ave,
-                                    'acc_range': acc_range, 'acc_x_std': acc_x_std, 'acc_y_std': acc_y_std,
-                                    'acc_z_std': acc_z_std, 'gyro_range': gyro_range,
-                                    'gyro_x_ave': gyro_x_ave, 'gyro_y_ave': gyro_y_ave, 'gyro_z_ave': gyro_z_ave,
-                                    'gyro_x_std': gyro_x_std,
-                                    'gyro_y_std': gyro_y_std, 'gyro_z_std': gyro_z_std, 'acc_std': acc_std,
-                                    'gyro_std': gyro_std, 'acc_skewness': acc_skewness,
-                                    'gyro_skewness': gyro_skewness, 'acc_kurtosis': acc_kurtosis,
-                                    'gyro_kurtosis': gyro_kurtosis, 'acc_energy': acc_energy,
-                                    'gyro_energy': gyro_energy, 'acc_ave': acc_ave, 'gyro_ave': gyro_ave,
-                                    'dif_acc_x_ave': (acc_x_ave - old_acc_x_ave), 'dif_acc_y_ave': (acc_y_ave - old_acc_y_ave),
-                                    'dif_acc_z_ave': (acc_z_ave - old_acc_z_ave),
-                                    'dif_acc_range': (acc_range - old_acc_range), 'dif_acc_x_std': (acc_x_std - old_acc_x_std),
-                                    'dif_acc_y_std': (acc_y_std - old_acc_y_std), 'dif_acc_z_std': (acc_z_std - old_acc_z_std),
-                                    'dif_gyro_range': (gyro_range - old_gyro_range),
-                                    'dif_gyro_x_ave': (gyro_x_ave - old_gyro_x_ave),
-                                    'dif_gyro_y_ave': (gyro_y_ave - old_gyro_y_ave),
-                                    'dif_gyro_z_ave': (gyro_z_ave - old_gyro_z_ave),
-                                    'dif_gyro_x_std': (gyro_x_std - old_gyro_x_std),
-                                    'dif_gyro_y_std': (gyro_y_std - old_gyro_y_std),
-                                    'dif_gyro_z_std': (gyro_z_std - old_gyro_z_std), 'dif_acc_std': (acc_std - old_acc_std),
-                                    'dif_gyro_std': (gyro_std - old_gyro_std),
-                                    'dif_acc_skewness': (acc_skewness - old_acc_skewness),
-                                    'dif_gyro_skewness': (gyro_skewness - old_gyro_skewness),
-                                    'dif_acc_kurtosis': (acc_kurtosis - old_acc_kurtosis),
-                                    'dif_gyro_kurtosis': (gyro_kurtosis - old_gyro_kurtosis),
-                                    'dif_acc_energy': (acc_energy - old_acc_energy),
-                                    'dif_gyro_energy': (gyro_energy - old_gyro_energy), 'dif_acc_ave': (acc_ave - old_acc_ave),
-                                    'dif_gyro_ave': (gyro_ave - old_gyro_ave)},
-                                   ignore_index=True)
-
-        new_df.to_csv("./features/{}.csv".format(file_name), index=False)
+        all_df.to_csv("../features/{}.csv".format(file_name), index=False)
         print('{}DONE!!!!'.format(file_name))
 
 """
