@@ -1,5 +1,9 @@
 import module.Calclator
 import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+import scipy.stats as stats
 
 class FeatureExtraction():
     def get_features(df, i, window):
@@ -57,6 +61,13 @@ class FeatureExtraction():
                     continue
                 new_df = pd.concat([new_df, features], axis=1)
             all_df = all_df.append(new_df)
+
+        all_df = all_df.dropna()
+        columns = all_df.columns
+
+        for column in columns:
+            all_df[column] = stats.zscore(all_df[column].values)
+
 
         all_df.to_csv("../features/{}.csv".format(file_name), index=False)
         print('{}DONE!!!!'.format(file_name))
